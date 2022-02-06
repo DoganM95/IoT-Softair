@@ -26,13 +26,13 @@ const int resolution = 8;   // 8 Bits resulting in 0-255 as Range for Duty Cycle
 
 // Configurations
 const unsigned short int burstShootCount = 3;     // Defines how many BB's to shootAction in burst mode with one trigger pull
-const unsigned int touchDetectionThreshold = 18;  // Adjustment of touch pin sensitivity
-const int triggerDebounceTime = 100;
-char* fireMode;
+const unsigned int touchDetectionThreshold = 20;  // Adjustment of touch pin sensitivity
+const int triggerDebounceDelay = 32;
 
 // Thread Adjustments
-const short int threadSetTriggerTouchedStateRoutineSleepDuration = 100;
-const short int threadSetTriggerPulledStateRoutineSleepDuration = 100;
+const short int triggerTouchSensorThreadIterationDelay = 64;
+const short int triggerPullSensorThreadIterationDelay = 32;
+
 const short int threadShootOnTouchAndTriggerRoutineSleepDuration = 100;
 
 TaskHandle_t triggerTouchSensorThreadHandle;
@@ -41,185 +41,165 @@ TaskHandle_t shootOnTouchAndTriggerRoutineThreadHandle;
 TaskHandle_t shotCountDetectSensorThreadHandle;
 TaskHandle_t setSystemSleepStateRoutineThreadHandle;
 
-bool triggerEnabledByTouch;
-bool triggerPulledByFinger;
-unsigned long long shotsFired = 0;
-unsigned short triggerTouchValue = 0;
+// Global vars written by sensors
+bool triggerTouching;
+unsigned short triggerTouchValue;
+
+bool triggerPulling;
+unsigned long long shotsFired;
 
 char* fireMode = "semi-automatic";
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ800);
 
-void shootAction(bool state, char* shootMode = "") {
-  unsigned int duration = 0;
-  unsigned int shots = 0;
-
-  if (state) {
-    if (shootMode == "semi-automatic") {
-      digitalWrite(motorControlPin, HIGH);
-      while (digitalRead(pistonSensorReadPin) == 1) {  // while infrared barrier is not blocked, wait
-        delay(1);                                      // FIXME: needs to be replaced by a time check
-        duration++;
-        if (duration >= 3000) {
-          goto skipCounterCausedByBarrierError;
-          break;  // security mechanism to stop shooting after x ms (in case of sensor failure)}
-        }
-      }
-
-      shotsFired++;
-    skipCounterCausedByBarrierError:
-      digitalWrite(motorControlPin, LOW);  // on infrared barrier blocked, cut motor electricity
-    }
-
-    else if (shootMode == "burst") {
-      digitalWrite(motorControlPin, HIGH);
-      while (digitalRead(pistonSensorReadPin) == 1) {
-        delay(1);
-      }
-    }
-
-    else if (shootMode == "full-automatic") {  // shoots until either trigger is released or finger stopped touching trigger
-      while (digitalRead(triggerPullReadPin) == HIGH && touchRead(4) <= touchDetectionThreshold) {
-      continueShooting:
-        digitalWrite(motorControlPin, HIGH);
-      }
-      delay(triggerDebounceDelay / 4);
-      if (digitalRead(triggerPullReadPin) == LOW || touchRead(4) >= touchDetectionThreshold) {
-        digitalWrite(motorControlPin, LOW);
-      } else {
-        goto continueShooting;
-      }
-    }
-
-  } else {
-    digitalWrite(motorControlPin, LOW);
-  }
-}
-
-// ----------------------------------------------------------------------------
-// Sensor Threads
-// ----------------------------------------------------------------------------
-
-void triggerTouchSensor(void* param) {
-  bool setEnabledFlag = false;
-  bool setDisabledFlag = false;
-  short int tempTouchValue;
-
-  while (true) {
-    tempTouchValue = touchRead(triggerTouchReadPin);
-    triggerTouchValue = tempTouchValue;
-    if (tempTouchValue <= touchDetectionThreshold && setEnabledFlag == false) {
-      triggerEnabledByTouch = true;
-      setEnabledFlag = true;
-      setDisabledFlag = false;
-    } else if (tempTouchValue > touchDetectionThreshold && setDisabledFlag == false) {
-      triggerEnabledByTouch = false;
-      setEnabledFlag = false;
-      setDisabledFlag = true;
-    }
-    delay(threadSetTriggerTouchedStateRoutineSleepDuration);
-  }
-}
-
-void triggerPullSensor(void* param) {
-  bool setEnabledFlag = false;
-  bool setDisabledFlag = false;
-  bool touchFlag = false;
-
-  unsigned int timerLow = 0;
-  unsigned int timerHigh = 0;
-  unsigned int timeoutTimer = 0;
-
-  while (true) {
-    timerHigh = 0;
-    timerLow = 0;
-
-    if (triggerEnabledByTouch) {
-      touchFlag = true;
-      Serial.printf("-----------------------------------------------------\n");
-      Serial.printf("pullThread - Trigger Touching: %d\n", triggerTouchValue);
-
-      while (digitalRead(triggerPullReadPin) == HIGH && setEnabledFlag == false) {
-        timerHigh++;
-        Serial.printf("pullThread - Time High: %d\n", timerHigh);
-        if (timerHigh >= 10) {
-          Serial.printf("pullThread - pulling trigger and touching, timerHigh = %d\n", timerHigh);
-          triggerPulledByFinger = true;
-          setEnabledFlag = true;
-          setDisabledFlag = false;
-        }
-        delay(1);
-      }
-
-      while (digitalRead(triggerPullReadPin) == LOW && setDisabledFlag == false) {
-        timerLow++;
-        Serial.printf("pullThread - Time Low: %d\n", timerLow);
-        if (timerLow >= 10) {
-          Serial.printf("pullThread - released trigger or not touching, timerLow = %d\n", timerLow);
-          triggerPulledByFinger = false;
-          setEnabledFlag = false;
-          setDisabledFlag = true;
-        }
-        delay(1);
-      }
-
-    } else if (!triggerEnabledByTouch) {
-      // setEnabledFlag = false;
-      // setDisabledFlag = false;
-      touchFlag = false;
-      triggerPulledByFinger = false;
-      Serial.printf("pullThread - stopped Touching Trigger: %d\n", triggerTouchValue);
-    }
-
-    delay(threadSetTriggerPulledStateRoutineSleepDuration);
-  }
-}
-
-void shootOnTouchAndTriggerRoutine(void* param) {
-  while (true) {
-    if (triggerEnabledByTouch && triggerPulledByFinger) {
-      shootAction(true, fireMode);
-    }
-    delay(threadShootOnTouchAndTriggerRoutineSleepDuration);  // time to sleep between each iteration
-  }
-}
-
-void shotDetectSensor(void* param) {
-  bool incrementedCountFlag = false;
-  while (true) {
-    if (digitalRead(pistonSensorReadPin) == 0 && incrementedCountFlag == false) {
-      // shotsFired++;
-      while (digitalRead(pistonSensorReadPin) == 0) {
-        delay(1);  // wait until piston leaves the barrier to prevent multiple increasements in one shot
-      }
-    }
-  }
-}
-
-// ----------------------------------------------------------------------------
-// SETUP
-// ----------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
 
-  ledcSetup(shotChannel, freq, resolution);
-  ledcAttachPin(pistonSensorReadPin, shotChannel);
-  pinMode(pistonSensorReadPin, INPUT_PULLDOWN);
+  // ledcSetup(shotChannel, freq, resolution);
+  // ledcAttachPin(pistonSensorReadPin, shotChannel);
+  // pinMode(pistonSensorReadPin, INPUT_PULLDOWN);
   pinMode(triggerPullReadPin, INPUT_PULLDOWN);
   pinMode(motorControlPin, OUTPUT);
 
-  Serial.printf("initial touch: %d, initial pull: %d\n", touchRead(triggerTouchReadPin), digitalRead(triggerPullReadPin));
+  Serial.printf("initial touch: %d\n", touchRead(triggerTouchReadPin));
+  // Serial.printf("initial pull: %d\n", digitalRead(triggerPullReadPin));
 
   disableCore0WDT();  // Disable WatchDogTimeout, so threads can run as long as they want
   disableCore1WDT();  // Same
 
   xTaskCreatePinnedToCore(triggerTouchSensor, "triggerTouchSensor", 10000, NULL, 20, &triggerTouchSensorThreadHandle, 1);
   xTaskCreatePinnedToCore(triggerPullSensor, "triggerPullSensor", 10000, NULL, 20, &triggerPullSensorThreadHandle, 1);
-  xTaskCreatePinnedToCore(shotDetectSensor, "shotSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
+  // xTaskCreatePinnedToCore(shotDetectSensor, "shotSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
 
-  xTaskCreatePinnedToCore(shootActionRoutine, "shotSensor", 10000, NULL, 20, &shootActionRoutineThreadHandle, 1);
+  // xTaskCreatePinnedToCore(shootActionRoutine, "shotSensor", 10000, NULL, 20, &shootActionRoutineThreadHandle, 1);
 }
-// ----------------------------------------------------------------------------
-// MAIN LOOP
-// ----------------------------------------------------------------------------
+
 void loop() {}
+
+// void shootAction(bool state, char* shootMode = "") {
+//   unsigned int duration = 0;
+//   unsigned int shots = 0;
+
+//   if (state) {
+//     if (shootMode == "semi-automatic") {
+//       digitalWrite(motorControlPin, HIGH);
+//       while (digitalRead(pistonSensorReadPin) == 1) {  // while infrared barrier is not blocked, wait
+//         delay(1);                                      // FIXME: needs to be replaced by a time check
+//         duration++;
+//         if (duration >= 3000) {
+//           goto skipCounterCausedByBarrierError;
+//           break;  // security mechanism to stop shooting after x ms (in case of sensor failure)}
+//         }
+//       }
+
+//       shotsFired++;
+//     skipCounterCausedByBarrierError:
+//       digitalWrite(motorControlPin, LOW);  // on infrared barrier blocked, cut motor electricity
+//     }
+
+//     else if (shootMode == "burst") {
+//       digitalWrite(motorControlPin, HIGH);
+//       while (digitalRead(pistonSensorReadPin) == 1) {
+//         delay(1);
+//       }
+//     }
+
+//     else if (shootMode == "full-automatic") {  // shoots until either trigger is released or finger stopped touching trigger
+//       while (digitalRead(triggerPullReadPin) == HIGH && touchRead(4) <= touchDetectionThreshold) {
+//       continueShooting:
+//         digitalWrite(motorControlPin, HIGH);
+//       }
+//       delay(triggerDebounceDelay / 4);
+//       if (digitalRead(triggerPullReadPin) == LOW || touchRead(4) >= touchDetectionThreshold) {
+//         digitalWrite(motorControlPin, LOW);
+//       } else {
+//         goto continueShooting;
+//       }
+//     }
+
+//   } else {
+//     digitalWrite(motorControlPin, LOW);
+//   }
+// }
+
+// ----------------------------------------------------------------------------
+// Sensor Threads
+// ----------------------------------------------------------------------------
+
+void triggerTouchSensor(void* param) {
+  // Flags to only execute code on condition transition
+  bool setEnabledFlag = false;
+  bool setDisabledFlag = false;
+  unsigned short int touchValue;
+
+  while (true) {
+    touchValue = touchRead(triggerTouchReadPin);
+    if (touchValue <= touchDetectionThreshold && setEnabledFlag == false) {
+      triggerTouching = true;
+      triggerTouchValue = touchValue;
+      setEnabledFlag = true;
+      setDisabledFlag = false;
+      Serial.printf("Touching: %s   ,   value: %d\n", triggerTouching ? "true" : "false", touchValue);
+    } else if (touchValue > touchDetectionThreshold && setDisabledFlag == false) {
+      triggerTouching = false;
+      triggerTouchValue = touchValue;
+      setEnabledFlag = false;
+      setDisabledFlag = true;
+      Serial.printf("Touching: %s   ,   value: %d\n", triggerTouching ? "true" : "false", touchValue);
+    }
+    delay(triggerTouchSensorThreadIterationDelay);
+  }
+}
+
+void triggerPullSensor(void* param) {
+  unsigned long long lastDebounceTime;  // the last time the output pin was toggled
+  int buttonState;                      // the current reading from the input pin
+  int lastButtonState = LOW;            // the previous reading from the input pin
+  int reading;
+
+  while (true) {
+    reading = digitalRead(triggerPullReadPin);
+    if (reading != lastButtonState) {
+      lastDebounceTime = millis();
+    }
+    if ((millis() - lastDebounceTime) > triggerDebounceDelay) {
+      if (reading != buttonState) {
+        buttonState = reading;
+        if (buttonState == HIGH) {
+          triggerPulling = true;
+          Serial.printf("Pulling: %s", triggerPulling ? "true" : "false");
+        } else {
+          triggerPulling = false;
+          Serial.printf("Pulling: %s", triggerPulling ? "true" : "false");
+        }
+      }
+    }
+    lastButtonState = reading;
+    delay(triggerPullSensorThreadIterationDelay);
+  }
+}
+
+// void shotDetectSensor(void* param) {
+//   bool incrementedCountFlag = false;
+//   while (true) {
+//     if (digitalRead(pistonSensorReadPin) == 0 && incrementedCountFlag == false) {
+//       // shotsFired++;
+//       while (digitalRead(pistonSensorReadPin) == 0) {
+//         delay(1);  // wait until piston leaves the barrier to prevent multiple increasements in one shot
+//       }
+//     }
+//   }
+// }
+
+// ----------------------------------------------------------------------------
+// Action Threads
+// ----------------------------------------------------------------------------
+
+// void shootOnTouchAndTriggerRoutine(void* param) {
+//   while (true) {
+//     if (triggerTouching && triggerPulling) {
+//       shootAction(true, fireMode);
+//     }
+//     delay(threadShootOnTouchAndTriggerRoutineSleepDuration);  // time to sleep between each iteration
+//   }
+// }
