@@ -7,70 +7,50 @@
 #include <stdbool.h>
 #include <time.h>
 
-// #include <Adafruit_NeoPixel>
-// #include <queue.h>
-// #include <semphr.h>
-
 #include "FreeRTOS.h"  // Threading library of FreeRTOS Kernel
 
-// Credentials
+// Config
 #include "Configuration/Wifi.h"
 
-// TODO: Put sensor threads on core 1, action threads on core 0
-
 // GPIO Pins
-static const unsigned short int pistonSensorReadPin = 34;  // Read: 1 = infrared barrier free, 0 = IR interrupted
-static const unsigned short int triggerPullReadPin = 32;   // Read: 1 = Shoot, 0 = Stop
-static const unsigned short int triggerTouchReadPin = 4;
-static const unsigned short int motorControlPin = 33;  // HIGH = shoot
-static const unsigned short int neoPixelPin = 23;
+const unsigned short int pistonSensorReadPin = 34;  // Read: 1 = infrared barrier free, 0 = IR interrupted
+const unsigned short int triggerPullReadPin = 32;   // Read: 1 = Shoot, 0 = Stop
+const unsigned short int triggerTouchReadPin = 4;
+const unsigned short int motorControlPin = 33;  // HIGH = shootAction
+const unsigned short int neoPixelPin = 23;
 
 // PWM channels and settings
-static const int freq = 5000;
-static const int shotChannel = 0;  // Shot Sensor
-static const int resolution = 8;   // 8 Bits resulting in 0-255 as Range for Duty Cycle
-
-// Counters
-static unsigned long int shotsFired;  // each counter only since boot, for permanent storage use a database or eeprom
-// Setting debounce delay for mechanical trigger switch/button
-static const int triggerDebounceDelay = 1;
+const int freq = 5000;
+const int shotChannel = 0;  // Shot Sensor
+const int resolution = 8;   // 8 Bits resulting in 0-255 as Range for Duty Cycle
 
 // Configurations
-static const unsigned short int burstShootCount = 3;                // Defines how many BB's to shoot in burst mode with one trigger pull
-static const unsigned int touchDetectionThreshold = 18;             // Adjustment of touch pin sensitivity
-static const unsigned short int debounceStableTimeUntilShoot = 10;  // Time for a button state to persist until it is considered as settled (not bouncing anymore)
-static const unsigned short int debounceTimeout = 100;              // Time in ms, after which the current trigger process is cancelled
-static char* fireMode;
-
-// States / vars
-static bool triggerEnabledByTouch;
-static bool triggerPulledByFinger;
-static unsigned int triggerTouchValue;
+const unsigned short int burstShootCount = 3;     // Defines how many BB's to shootAction in burst mode with one trigger pull
+const unsigned int touchDetectionThreshold = 18;  // Adjustment of touch pin sensitivity
+const int triggerDebounceTime = 100;
+char* fireMode;
 
 // Thread Adjustments
-static const short int threadSetTriggerTouchedStateRoutineSleepDuration = 100;  // in ms (alters responsiveness)
-static const short int threadSetTriggerPulledStateRoutineSleepDuration = 100;   // in ms (alters responsiveness)
-static const short int threadShootOnTouchAndTriggerRoutineSleepDuration = 100;  // in ms (alters responsiveness)
+const short int threadSetTriggerTouchedStateRoutineSleepDuration = 100;
+const short int threadSetTriggerPulledStateRoutineSleepDuration = 100;
+const short int threadShootOnTouchAndTriggerRoutineSleepDuration = 100;
 
-// TODO: Rename Thread handlers according to thread names
-pthread_t triggerTouchSensorThreadHandle;
-pthread_t triggerPullSensorThreadHandle;
-pthread_t shootOnTouchAndTriggerRoutineThreadHandle;
-pthread_t shotCountDetectSensorThreadHandle;
-pthread_t setSystemSleepStateRoutineThreadHandle;
+TaskHandle_t triggerTouchSensorThreadHandle;
+TaskHandle_t triggerPullSensorThreadHandle;
+TaskHandle_t shootOnTouchAndTriggerRoutineThreadHandle;
+TaskHandle_t shotCountDetectSensorThreadHandle;
+TaskHandle_t setSystemSleepStateRoutineThreadHandle;
 
-SemaphoreHandle_t exampleSemaphoreForPthreads;
-pthread_mutex_t exampleMutexForThreads;
+bool triggerEnabledByTouch;
+bool triggerPulledByFinger;
+unsigned long long shotsFired = 0;
+unsigned short triggerTouchValue = 0;
 
-// SETUP
-bool triggerEnabledByTouch = false;
-bool triggerPulledByFinger = false;
-unsigned long int shotsFired = 0;
 char* fireMode = "semi-automatic";
-unsigned int triggerTouchValue = 0;
+
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ800);
 
-void shoot(bool state, char* shootMode = "") {
+void shootAction(bool state, char* shootMode = "") {
   unsigned int duration = 0;
   unsigned int shots = 0;
 
@@ -198,7 +178,7 @@ void triggerPullSensor(void* param) {
 void shootOnTouchAndTriggerRoutine(void* param) {
   while (true) {
     if (triggerEnabledByTouch && triggerPulledByFinger) {
-      shoot(true, fireMode);
+      shootAction(true, fireMode);
     }
     delay(threadShootOnTouchAndTriggerRoutineSleepDuration);  // time to sleep between each iteration
   }
@@ -216,16 +196,12 @@ void shotDetectSensor(void* param) {
   }
 }
 
-pthread_t webserverThreadHandle;
-SemaphoreHandle_t webServerSemaphore;
-
 // ----------------------------------------------------------------------------
 // SETUP
 // ----------------------------------------------------------------------------
 void setup() {
   Serial.begin(115200);
 
-  // Shot sensor
   ledcSetup(shotChannel, freq, resolution);
   ledcAttachPin(pistonSensorReadPin, shotChannel);
   pinMode(pistonSensorReadPin, INPUT_PULLDOWN);
@@ -234,17 +210,9 @@ void setup() {
 
   Serial.printf("initial touch: %d, initial pull: %d\n", touchRead(triggerTouchReadPin), digitalRead(triggerPullReadPin));
 
-  pixels.begin();
-  pixels.setPixelColor(3, pixels.Color(100, 0, 0));
-  pixels.setPixelColor(2, pixels.Color(0, 100, 0));
-  pixels.setPixelColor(1, pixels.Color(0, 0, 100));
-  pixels.setPixelColor(0, pixels.Color(100, 100, 100));
-  pixels.show();
-
   disableCore0WDT();  // Disable WatchDogTimeout, so threads can run as long as they want
   disableCore1WDT();  // Same
 
-  // Thread Creations
   xTaskCreatePinnedToCore(triggerTouchSensor, "triggerTouchSensor", 10000, NULL, 20, &triggerTouchSensorThreadHandle, 1);
   xTaskCreatePinnedToCore(triggerPullSensor, "triggerPullSensor", 10000, NULL, 20, &triggerPullSensorThreadHandle, 1);
   xTaskCreatePinnedToCore(shotDetectSensor, "shotSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
