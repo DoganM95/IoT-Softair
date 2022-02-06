@@ -1,3 +1,12 @@
 .vscode
-/**/Credentials/*
-!/**/Credentials/*_example.h
+
+**/Credentials/*
+**/Configuration/*
+
+!***_example.h
+
+**/*.bkp
+**/*.log
+
+desktop.ini
+folderico-github.ico
