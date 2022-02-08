@@ -39,7 +39,7 @@ TaskHandle_t triggerTouchSensorThreadHandle;
 TaskHandle_t triggerPullSensorThreadHandle;
 TaskHandle_t shotCountDetectSensorThreadHandle;
 
-TaskHandle_t shootActionRoutineThreadHandle;
+TaskHandle_t shootActionRoutineThreadHandle; // TODO: Physical device test
 
 TaskHandle_t setSystemSleepStateRoutineThreadHandle;  // TODO: implement sleep routine with reset function on interaction
 
