@@ -164,10 +164,10 @@ void triggerPullSensor(void* param) {
         buttonState = reading;
         if (buttonState == HIGH) {
           triggerPulling = true;
-          Serial.printf("Pulling: %s", triggerPulling ? "true" : "false");
+          Serial.printf("Pulling: %s\n", triggerPulling ? "true" : "false");
         } else {
           triggerPulling = false;
-          Serial.printf("Pulling: %s", triggerPulling ? "true" : "false");
+          Serial.printf("Pulling: %s\n", triggerPulling ? "true" : "false");
         }
       }
     }
@@ -177,16 +177,17 @@ void triggerPullSensor(void* param) {
 }
 
 void nozzleRecoilSensor(void* param) {
-  bool interruption;
+  bool barrierIsFree;
   while (true) {
-    interruption = digitalRead(nozzleRecoilSensorReadPin);
-    if (digitalRead(nozzleRecoilSensorReadPin) == 1) {
+    barrierIsFree = digitalRead(nozzleRecoilSensorReadPin);
+    if (barrierIsFree == false) {
       shotsFired++;
       Serial.printf("Shot fired.\n");
-      while (digitalRead(nozzleRecoilSensorReadPin) == 1) {
-        delay(1);  // wait until piston leaves the barrier to prevent multiple increasements in one shot
+      while (digitalRead(nozzleRecoilSensorReadPin) == false) {
+        delay(1);  // wait until piston leaves the barrier
       }
     }
+    delay(1);  // to save cpu cycles, nozzle does not move that fast
   }
 }
 
