@@ -33,7 +33,7 @@ const int triggerDebounceDelay = 32;
 const short int triggerTouchSensorThreadIterationDelay = 64;
 const short int triggerPullSensorThreadIterationDelay = 32;
 
-const short int threadShootOnTouchAndTriggerRoutineSleepDuration = 100;
+const short int shootActionRoutineThreadIterationDelay = 5;
 
 TaskHandle_t triggerTouchSensorThreadHandle;
 TaskHandle_t triggerPullSensorThreadHandle;
@@ -48,7 +48,7 @@ unsigned short triggerTouchValue;
 bool triggerPulling;
 unsigned long long shotsFired;
 
-char* fireMode = "semi-automatic";
+char* shootMode = "semi";
 
 Adafruit_NeoPixel pixels = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ800);
 
@@ -68,56 +68,10 @@ void setup() {
   xTaskCreatePinnedToCore(triggerPullSensor, "triggerPullSensor", 10000, NULL, 20, &triggerPullSensorThreadHandle, 1);
   xTaskCreatePinnedToCore(nozzleRecoilSensor, "nozzleRecoilSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
 
-  // xTaskCreatePinnedToCore(shootActionRoutine, "shootActionRoutine", 10000, NULL, 20, &shootActionRoutineThreadHandle, 1);
+  xTaskCreatePinnedToCore(shootActionRoutine, "shootActionRoutine", 10000, NULL, 20, &shootActionRoutineThreadHandle, 1);
 }
 
 void loop() {}
-
-// void shootAction(bool state, char* shootMode = "") {
-//   unsigned int duration = 0;
-//   unsigned int shots = 0;
-
-//   if (state) {
-//     if (shootMode == "semi-automatic") {
-//       digitalWrite(motorControlPin, HIGH);
-//       while (digitalRead(nozzleRecoilSensorReadPin) == 1) {  // while infrared barrier is not blocked, wait
-//         delay(1);                                      // FIXME: needs to be replaced by a time check
-//         duration++;
-//         if (duration >= 3000) {
-//           goto skipCounterCausedByBarrierError;
-//           break;  // security mechanism to stop shooting after x ms (in case of sensor failure)}
-//         }
-//       }
-
-//       shotsFired++;
-//     skipCounterCausedByBarrierError:
-//       digitalWrite(motorControlPin, LOW);  // on infrared barrier blocked, cut motor electricity
-//     }
-
-//     else if (shootMode == "burst") {
-//       digitalWrite(motorControlPin, HIGH);
-//       while (digitalRead(nozzleRecoilSensorReadPin) == 1) {
-//         delay(1);
-//       }
-//     }
-
-//     else if (shootMode == "full-automatic") {  // shoots until either trigger is released or finger stopped touching trigger
-//       while (digitalRead(triggerPullReadPin) == HIGH && touchRead(4) <= touchDetectionThreshold) {
-//       continueShooting:
-//         digitalWrite(motorControlPin, HIGH);
-//       }
-//       delay(triggerDebounceDelay / 4);
-//       if (digitalRead(triggerPullReadPin) == LOW || touchRead(4) >= touchDetectionThreshold) {
-//         digitalWrite(motorControlPin, LOW);
-//       } else {
-//         goto continueShooting;
-//       }
-//     }
-
-//   } else {
-//     digitalWrite(motorControlPin, LOW);
-//   }
-// }
 
 // ----------------------------------------------------------------------------
 // Sensor Threads
@@ -195,11 +149,41 @@ void nozzleRecoilSensor(void* param) {
 // Action Threads
 // ----------------------------------------------------------------------------
 
-// void shootOnTouchAndTriggerRoutine(void* param) {
-//   while (true) {
-//     if (triggerTouching && triggerPulling) {
-//       shootAction(true, fireMode);
-//     }
-//     delay(threadShootOnTouchAndTriggerRoutineSleepDuration);  // time to sleep between each iteration
-//   }
-// }
+void shootActionRoutine(void* param) {
+  while (true) {
+    if (triggerTouching && triggerPulling) {
+      shoot(shootMode);
+    }
+    while (triggerTouching && triggerPulling) {
+      delay(10);  // sleep until trigger is released
+    }
+    delay(shootActionRoutineThreadIterationDelay);  // the higher the longer it takes to respond on pull (ping), but saves cpu time
+  }
+}
+
+void shoot(char* shootMode = "semi") {
+  if (shootMode == "semi") {
+    shootGivenTimes(1);
+  } else if (shootMode == "burst") {
+    shootGivenTimes(burstShootCount);
+  } else if (shootMode == "full") {  // shoots until either trigger is released or finger stops touching trigger
+    shootWhilePulled();
+  }
+}
+
+void shootGivenTimes(ushort times = 1) {
+  ushort shotsFiredBefore = shotsFired;
+  digitalWrite(motorControlPin, HIGH);
+  while (shotsFired <= shotsFiredBefore + times) {
+    delay(10);
+  }
+  digitalWrite(motorControlPin, LOW);
+}
+
+void shootWhilePulled() {
+  digitalWrite(motorControlPin, HIGH);
+  while (triggerTouching && triggerPulling) {  // exit condition:  !triggerTouching || !triggerPulling
+    delay(1)                                   // stops immediately, when releasing the trigger
+  };
+  digitalWrite(motorControlPin, LOW);
+}
