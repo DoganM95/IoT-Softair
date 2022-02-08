@@ -13,8 +13,8 @@
 #include "Configuration/Wifi.h"
 
 // GPIO Pins
-const unsigned short int pistonSensorReadPin = 34;  // Read: 1 = infrared barrier free, 0 = IR interrupted
-const unsigned short int triggerPullReadPin = 32;   // Read: 1 = Shoot, 0 = Stop
+const unsigned short int nozzleRecoilSensorReadPin = 34;  // Read: 1 = infrared barrier free, 0 = IR interrupted
+const unsigned short int triggerPullReadPin = 32;         // Read: 1 = Shoot, 0 = Stop
 const unsigned short int triggerTouchReadPin = 4;
 const unsigned short int motorControlPin = 33;  // HIGH = shootAction
 const unsigned short int neoPixelPin = 23;
@@ -55,23 +55,20 @@ Adafruit_NeoPixel pixels = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ80
 void setup() {
   Serial.begin(115200);
 
-  // ledcSetup(shotChannel, freq, resolution);
-  // ledcAttachPin(pistonSensorReadPin, shotChannel);
-  // pinMode(pistonSensorReadPin, INPUT_PULLDOWN);
+  ledcSetup(shotChannel, freq, resolution);
+  ledcAttachPin(nozzleRecoilSensorReadPin, shotChannel);
+  pinMode(nozzleRecoilSensorReadPin, INPUT_PULLDOWN);
   pinMode(triggerPullReadPin, INPUT_PULLDOWN);
   pinMode(motorControlPin, OUTPUT);
-
-  Serial.printf("initial touch: %d\n", touchRead(triggerTouchReadPin));
-  // Serial.printf("initial pull: %d\n", digitalRead(triggerPullReadPin));
 
   disableCore0WDT();  // Disable WatchDogTimeout, so threads can run as long as they want
   disableCore1WDT();  // Same
 
   xTaskCreatePinnedToCore(triggerTouchSensor, "triggerTouchSensor", 10000, NULL, 20, &triggerTouchSensorThreadHandle, 1);
   xTaskCreatePinnedToCore(triggerPullSensor, "triggerPullSensor", 10000, NULL, 20, &triggerPullSensorThreadHandle, 1);
-  // xTaskCreatePinnedToCore(shotDetectSensor, "shotSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
+  xTaskCreatePinnedToCore(nozzleRecoilSensor, "nozzleRecoilSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
 
-  // xTaskCreatePinnedToCore(shootActionRoutine, "shotSensor", 10000, NULL, 20, &shootActionRoutineThreadHandle, 1);
+  // xTaskCreatePinnedToCore(shootActionRoutine, "shootActionRoutine", 10000, NULL, 20, &shootActionRoutineThreadHandle, 1);
 }
 
 void loop() {}
@@ -83,7 +80,7 @@ void loop() {}
 //   if (state) {
 //     if (shootMode == "semi-automatic") {
 //       digitalWrite(motorControlPin, HIGH);
-//       while (digitalRead(pistonSensorReadPin) == 1) {  // while infrared barrier is not blocked, wait
+//       while (digitalRead(nozzleRecoilSensorReadPin) == 1) {  // while infrared barrier is not blocked, wait
 //         delay(1);                                      // FIXME: needs to be replaced by a time check
 //         duration++;
 //         if (duration >= 3000) {
@@ -99,7 +96,7 @@ void loop() {}
 
 //     else if (shootMode == "burst") {
 //       digitalWrite(motorControlPin, HIGH);
-//       while (digitalRead(pistonSensorReadPin) == 1) {
+//       while (digitalRead(nozzleRecoilSensorReadPin) == 1) {
 //         delay(1);
 //       }
 //     }
@@ -179,17 +176,19 @@ void triggerPullSensor(void* param) {
   }
 }
 
-// void shotDetectSensor(void* param) {
-//   bool incrementedCountFlag = false;
-//   while (true) {
-//     if (digitalRead(pistonSensorReadPin) == 0 && incrementedCountFlag == false) {
-//       // shotsFired++;
-//       while (digitalRead(pistonSensorReadPin) == 0) {
-//         delay(1);  // wait until piston leaves the barrier to prevent multiple increasements in one shot
-//       }
-//     }
-//   }
-// }
+void nozzleRecoilSensor(void* param) {
+  bool interruption;
+  while (true) {
+    interruption = digitalRead(nozzleRecoilSensorReadPin);
+    if (digitalRead(nozzleRecoilSensorReadPin) == 1) {
+      shotsFired++;
+      Serial.printf("Shot fired.\n");
+      while (digitalRead(nozzleRecoilSensorReadPin) == 1) {
+        delay(1);  // wait until piston leaves the barrier to prevent multiple increasements in one shot
+      }
+    }
+  }
+}
 
 // ----------------------------------------------------------------------------
 // Action Threads
