@@ -37,9 +37,11 @@ const short int shootActionRoutineThreadIterationDelay = 5;
 
 TaskHandle_t triggerTouchSensorThreadHandle;
 TaskHandle_t triggerPullSensorThreadHandle;
-TaskHandle_t shootOnTouchAndTriggerRoutineThreadHandle;
 TaskHandle_t shotCountDetectSensorThreadHandle;
-TaskHandle_t setSystemSleepStateRoutineThreadHandle;
+
+TaskHandle_t shootActionRoutineThreadHandle;
+
+TaskHandle_t setSystemSleepStateRoutineThreadHandle;  // TODO: implement sleep routine with reset function on interaction
 
 // Global vars written by sensors
 bool triggerTouching;
@@ -78,7 +80,7 @@ void loop() {}
 // ----------------------------------------------------------------------------
 
 void triggerTouchSensor(void* param) {
-  // Flags to only execute code on condition transition
+  // Flags to execute code only on condition transition
   bool setEnabledFlag = false;
   bool setDisabledFlag = false;
   unsigned short int touchValue;
@@ -160,6 +162,10 @@ void shootActionRoutine(void* param) {
     delay(shootActionRoutineThreadIterationDelay);  // the higher the longer it takes to respond on pull (ping), but saves cpu time
   }
 }
+
+// ----------------------------------------------------------------------------
+// Functions:
+// ----------------------------------------------------------------------------
 
 void shoot(char* shootMode = "semi") {
   if (shootMode == "semi") {
