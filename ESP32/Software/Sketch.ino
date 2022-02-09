@@ -1,5 +1,6 @@
-// Librararies
 #include <Adafruit_NeoPixel.h>
+
+// Librararies
 #include <BlynkSimpleEsp32.h>  // Part of Blynk by Volodymyr Shymanskyy
 #include <WiFi.h>              // Part of WiFi Built-In by Arduino
 #include <WiFiClient.h>        // Part of WiFi Built-In by Arduino
@@ -34,14 +35,14 @@ const short int triggerTouchSensorThreadIterationDelay = 64;
 const short int triggerPullSensorThreadIterationDelay = 32;
 
 const short int shootActionRoutineThreadIterationDelay = 5;
+const short sightLightHandlingRoutineThreadIterationDelay = 64;
 
 TaskHandle_t triggerTouchSensorThreadHandle;
 TaskHandle_t triggerPullSensorThreadHandle;
 TaskHandle_t shotCountDetectSensorThreadHandle;
 
-TaskHandle_t shootActionRoutineThreadHandle;  // TODO: Physical device test
-
-TaskHandle_t sightLightHandlingRoutineThreadHandle;
+TaskHandle_t shootActionRoutineThreadHandle;          // TODO: Physical device test
+TaskHandle_t sightLightHandlingRoutineThreadHandle;   // TODO: physical test using 74ahct125 logic level shifter
 TaskHandle_t setSystemSleepStateRoutineThreadHandle;  // TODO: implement sleep routine with reset function on interaction
 
 // Global vars written by sensors
@@ -73,10 +74,41 @@ void setup() {
 
   xTaskCreatePinnedToCore(shootActionRoutine, "shootActionRoutine", 10000, NULL, 20, &shootActionRoutineThreadHandle, 0);
 
-  xTaskCreatePinnedToCore(sightLightHandlingRoutine, "sightLIghtHandler", 10000, NULL, 10, &sightLightHandlingRoutineThreadHandle, 0);
+  xTaskCreatePinnedToCore(sightLightHandlingRoutine, "sightLightHandler", 10000, NULL, 10, &sightLightHandlingRoutineThreadHandle, 0);
 }
 
 void loop() {}
+
+// ----------------------------------------------------------------------------
+// Functions:
+// ----------------------------------------------------------------------------
+
+void shootGivenTimes(ushort times = 1) {
+  ushort shotsFiredBefore = shotsFired;
+  digitalWrite(motorControlPin, HIGH);
+  while (shotsFired <= shotsFiredBefore + times) {
+    delay(10);
+  }
+  digitalWrite(motorControlPin, LOW);
+}
+
+void shootWhilePulled() {
+  digitalWrite(motorControlPin, HIGH);
+  while (triggerTouching && triggerPulling) {  // exit condition:  !triggerTouching || !triggerPulling
+    delay(1);                                  // stops immediately, when releasing the trigger
+  };
+  digitalWrite(motorControlPin, LOW);
+}
+
+void shoot(char* shootMode = "semi") {
+  if (shootMode == "semi") {
+    shootGivenTimes(1);
+  } else if (shootMode == "burst") {
+    shootGivenTimes(burstShootCount);
+  } else if (shootMode == "full") {  // shoots until either trigger is released or finger stops touching trigger
+    shootWhilePulled();
+  }
+}
 
 // ----------------------------------------------------------------------------
 // Sensor Threads
@@ -168,40 +200,18 @@ void shootActionRoutine(void* param) {
 
 void sightLightHandlingRoutine(void* param) {
   lights.begin();
-  pixels.setPixelColor(0, pixels.Color(255, 0, 0));
-  pixels.setPixelColor(1, pixels.Color(0, 255, 0));
-  pixels.setPixelColor(2, pixels.Color(, 0, 255));
-  pixels.setPixelColor(3, pixels.Color(255, 255, 255));
-  pixels.show();
-}
-
-// ----------------------------------------------------------------------------
-// Functions:
-// ----------------------------------------------------------------------------
-
-void shoot(char* shootMode = "semi") {
-  if (shootMode == "semi") {
-    shootGivenTimes(1);
-  } else if (shootMode == "burst") {
-    shootGivenTimes(burstShootCount);
-  } else if (shootMode == "full") {  // shoots until either trigger is released or finger stops touching trigger
-    shootWhilePulled();
+  while (true) {
+    if (triggerTouching) {
+      lights.setPixelColor(0, lights.Color(0, 255, 0));
+      lights.setPixelColor(1, lights.Color(0, 255, 0));
+      lights.setPixelColor(2, lights.Color(0, 255, 0));
+      lights.show();
+    } else {
+      lights.setPixelColor(0, lights.Color(255, 0, 0));
+      lights.setPixelColor(1, lights.Color(255, 0, 0));
+      lights.setPixelColor(2, lights.Color(255, 0, 0));
+      lights.show();
+    }
+    delay(sightLightHandlingRoutineThreadIterationDelay);
   }
-}
-
-void shootGivenTimes(ushort times = 1) {
-  ushort shotsFiredBefore = shotsFired;
-  digitalWrite(motorControlPin, HIGH);
-  while (shotsFired <= shotsFiredBefore + times) {
-    delay(10);
-  }
-  digitalWrite(motorControlPin, LOW);
-}
-
-void shootWhilePulled() {
-  digitalWrite(motorControlPin, HIGH);
-  while (triggerTouching && triggerPulling) {  // exit condition:  !triggerTouching || !triggerPulling
-    delay(1)                                   // stops immediately, when releasing the trigger
-  };
-  digitalWrite(motorControlPin, LOW);
 }
