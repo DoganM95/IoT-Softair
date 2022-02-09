@@ -39,8 +39,9 @@ TaskHandle_t triggerTouchSensorThreadHandle;
 TaskHandle_t triggerPullSensorThreadHandle;
 TaskHandle_t shotCountDetectSensorThreadHandle;
 
-TaskHandle_t shootActionRoutineThreadHandle; // TODO: Physical device test
+TaskHandle_t shootActionRoutineThreadHandle;  // TODO: Physical device test
 
+TaskHandle_t sightLightHandlingRoutineThreadHandle;
 TaskHandle_t setSystemSleepStateRoutineThreadHandle;  // TODO: implement sleep routine with reset function on interaction
 
 // Global vars written by sensors
@@ -52,7 +53,7 @@ unsigned long long shotsFired;
 
 char* shootMode = "semi";
 
-Adafruit_NeoPixel pixels = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel lights = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ800);
 
 void setup() {
   Serial.begin(115200);
@@ -71,6 +72,8 @@ void setup() {
   xTaskCreatePinnedToCore(nozzleRecoilSensor, "nozzleRecoilSensor", 10000, NULL, 20, &shotCountDetectSensorThreadHandle, 1);
 
   xTaskCreatePinnedToCore(shootActionRoutine, "shootActionRoutine", 10000, NULL, 20, &shootActionRoutineThreadHandle, 0);
+
+  xTaskCreatePinnedToCore(sightLightHandlingRoutine, "sightLIghtHandler", 10000, NULL, 10, &sightLightHandlingRoutineThreadHandle, 0);
 }
 
 void loop() {}
@@ -161,6 +164,15 @@ void shootActionRoutine(void* param) {
     }
     delay(shootActionRoutineThreadIterationDelay);  // the higher the longer it takes to respond on pull (ping), but saves cpu time
   }
+}
+
+void sightLightHandlingRoutine(void* param) {
+  lights.begin();
+  pixels.setPixelColor(0, pixels.Color(255, 0, 0));
+  pixels.setPixelColor(1, pixels.Color(0, 255, 0));
+  pixels.setPixelColor(2, pixels.Color(, 0, 255));
+  pixels.setPixelColor(3, pixels.Color(255, 255, 255));
+  pixels.show();
 }
 
 // ----------------------------------------------------------------------------
