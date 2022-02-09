@@ -41,8 +41,8 @@ TaskHandle_t triggerTouchSensorThreadHandle;
 TaskHandle_t triggerPullSensorThreadHandle;
 TaskHandle_t shotCountDetectSensorThreadHandle;
 
+TaskHandle_t sightLightHandlingRoutineThreadHandle;
 TaskHandle_t shootActionRoutineThreadHandle;          // TODO: Physical device test
-TaskHandle_t sightLightHandlingRoutineThreadHandle;   // TODO: physical test using 74ahct125 logic level shifter
 TaskHandle_t setSystemSleepStateRoutineThreadHandle;  // TODO: implement sleep routine with reset function on interaction
 
 // Global vars written by sensors
