@@ -8,8 +8,6 @@
 #include <stdbool.h>
 #include <time.h>
 
-#include "FreeRTOS.h"  // Threading library of FreeRTOS Kernel
-
 // Config
 #include "Configuration/Wifi.h"
 
@@ -205,11 +203,13 @@ void sightLightHandlingRoutine(void* param) {
       lights.setPixelColor(0, lights.Color(0, 255, 0));
       lights.setPixelColor(1, lights.Color(0, 255, 0));
       lights.setPixelColor(2, lights.Color(0, 255, 0));
+      lights.setPixelColor(3, lights.Color(0, 255, 0));
       lights.show();
     } else {
       lights.setPixelColor(0, lights.Color(255, 0, 0));
       lights.setPixelColor(1, lights.Color(255, 0, 0));
       lights.setPixelColor(2, lights.Color(255, 0, 0));
+      lights.setPixelColor(3, lights.Color(255, 0, 0));
       lights.show();
     }
     delay(sightLightHandlingRoutineThreadIterationDelay);
