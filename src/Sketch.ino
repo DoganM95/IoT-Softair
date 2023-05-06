@@ -50,7 +50,7 @@ unsigned short triggerTouchValue;
 bool triggerPulling;
 unsigned long long shotsFired;
 
-char* shootMode = "semi";
+char shootMode[] = "semi";
 
 Adafruit_NeoPixel lights = Adafruit_NeoPixel(4, neoPixelPin, NEO_GRB + NEO_KHZ800);
 
@@ -98,7 +98,7 @@ void shootWhilePulled() {
   digitalWrite(motorControlPin, LOW);
 }
 
-void shoot(char* shootMode = "semi") {
+void shoot(char shootMode[]) {
   if (shootMode == "semi") {
     shootGivenTimes(1);
   } else if (shootMode == "burst") {
