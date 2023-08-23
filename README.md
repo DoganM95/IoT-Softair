@@ -5,11 +5,10 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 - Ucb Vcc
 - Usb D+
 - Usb D-
-- Usb Gnd
 - Capacitive touch (trigger)
 - Batt + (high current)
 - Batt mid
-- Batt - (high current)
+- Batt - && Usb Gnd combined (high current)
 
 ### Main hardware components
 
