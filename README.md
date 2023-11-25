@@ -18,7 +18,7 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 - 1x 2S BMS: Balancer for 2 cells
 - 1x CH340c: Circuit for programming the esp32
 - 1x USB C PD pcb: 5V pd board with USB 2.0
-- Infrared Interrupt Sensor: detects shots by piston recoil
+- 1x VL53L0X: detects shots by piston recoil blocking sight
 - 2x KND3203: High current N-Channel Mosfet
 - 1x 2S charger, 4A out, 5V in: Uses CN3302, AO4468 to charge batteries
 - 1x 74AHCT125: logic shifter to control neopixels
