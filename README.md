@@ -18,8 +18,8 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 - 1x 2S BMS: Balancer for 2 cells
 - 1x CH340c: Circuit for programming the esp32
 - 1x USB C PD pcb: 5V pd board with USB 2.0
-- 1x VL53L0X: detects shots by piston recoil blocking sight
+- 1x QRE1113: detects piston recoil by reflection
 - 2x KND3203: High current N-Channel Mosfet
 - 1x 2S charger, 4A out, 5V in: Uses CN3302, AO4468 to charge batteries
 - 1x 74AHCT125: logic shifter to control neopixels
-- 1x MIC5219-3.3: to power any 3.3v consumer by battery
+- 2x MIC5219-3.3: to power any 3.3v consumer by battery
