@@ -27,4 +27,4 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 ## Dimensions
 - Between slide inner wall and barrel: Max 6mm height
 
-![image](https://github.com/DoganM95/IoT-Softair/assets/38842553/62374371-dc7d-4e73-993d-8299db8dc941)
+![image](https://github.com/DoganM95/IoT-Softair/assets/38842553/2528bff4-0c19-4a09-a9c6-f10ae86ed3b1)
