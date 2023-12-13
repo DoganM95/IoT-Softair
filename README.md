@@ -1,7 +1,7 @@
-## Intro
+# Intro
 This is an attempt to replace the internals of an airsoft toy pistol with superior, smart ones. The mainboard will be a long and thin pcb accomodating the important components, attached to the inner left side of the slide. A daughterboard will provide pads for external connections. both boards will be connected by e.g. a flex cable, a usb c port or whatever suits best, to provide high current flow as well as data communication.
 
-### Connections (main- & daughter board)
+## Connections (main- & daughter board)
 - Ucb Vcc
 - Usb D+
 - Usb D-
@@ -10,7 +10,7 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 - Batt mid
 - Batt - && Usb Gnd combined (high current)
 
-### Main hardware components
+## Main hardware components
 
 - CYMA Glock 18C (CM.030)
 - 1x ESP32-DOWD: microcontroller
@@ -23,3 +23,8 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 - 1x 2S charger, 4A out, 5V in: Uses CN3302, AO4468 to charge batteries
 - 1x 74AHCT125: logic shifter to control neopixels
 - 2x MIC5219-3.3: to power any 3.3v consumer by battery
+
+## Dimensions
+- Between slide inner wall and barrel: Max 6mm height
+
+![image](https://github.com/DoganM95/IoT-Softair/assets/38842553/62374371-dc7d-4e73-993d-8299db8dc941)
