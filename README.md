@@ -1,5 +1,5 @@
 # Intro
-This is an attempt to replace the internals of an airsoft toy pistol with superior, smart ones. The mainboard will be a long and thin pcb accomodating the important components, attached to the inner left side of the slide. A daughterboard will provide pads for external connections. both boards will be connected by e.g. a flex cable, a usb c port or whatever suits best, to provide high current flow as well as data communication.
+This is an attempt to replace the internals of an airsoft toy pistol with superior, smart ones. The mainboard will be a long and thin pcb accomodating the important components, attached to the inner left side of the slide. A daughterboard will provide pads for external connections. both boards will be connected by probably dual row, 4 column header pins, to provide high current flow as well as data communication.
 
 ## Connections (main- & daughter board)
 - Ucb Vcc
