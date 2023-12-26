@@ -1,5 +1,5 @@
 # Intro
-This is an attempt to replace the internals of an airsoft toy pistol with superior, smart ones. The mainboard will be a long and thin pcb accomodating the important components, attached to the inner left side of the slide. A daughterboard will provide pads for external connections. both boards will be connected by probably dual row, 4 column header pins, to provide high current flow as well as data communication.
+This is an attempt to replace the internals of an airsoft toy pistol with superior, smart ones. The mainboard will be a long and thin pcb accomodating the important components, attached to the inner left side of the slide. A daughterboard will provide pads for external connections. both boards will be connected by probably dual row, 4 column header pins, to provide high current flow as well as D+ & D-. The shoot mode selector will get a mini magnet glued to its leg and the pcb 2 hall effect sensors to sense where mode by position. Another hall sensor will be in the middle of the pcb, to sense the position of the trigger, that will also have a magnet glued on an extension of its front.
 
 ## Connections (main- & daughter board)
 - Ucb Vcc
@@ -23,6 +23,7 @@ This is an attempt to replace the internals of an airsoft toy pistol with superi
 - 1x 2S charger, 4A out, 5V in: Uses CN3302, AO4468 to charge batteries
 - 1x 74AHCT125: logic shifter to control neopixels
 - 2x MIC5219-3.3: to power any 3.3v consumer by battery
+- 3x hall effect sensor
 
 ## Dimensions
 - Between slide inner wall and barrel: Max 6mm height
