@@ -38,9 +38,9 @@ A charging port with usb C (at least 12 pin with D+ and D-) will be added to the
 - 1x QRE1113: detects piston recoil by reflection
 - 2x KND3203: High current N-Channel Mosfet
 - 1x 74AHCT125: logic shifter to control neopixels
-- 2x MIC5219-3.3: to power any 3.3v consumer by battery
-- 3x hall effect sensor
-- 1x [CH340C-Pcb](https://github.com/DoganM95/CH340C-Pcb) which is a circuit for auto programming && resettiung the esp32
+- 1x TPS63070: buck-boost (3.3v out)
+- 1x hall effect sensor
+- 1x [CH340C circuit](https://github.com/DoganM95/CH340C-Pcb) for programming the esp32
 - 1x [2S-Charge-Balance-Pcb](https://github.com/DoganM95/2S-Charge-Balance-Pcb) that includes
   - 1x 2S BMS: Balancer for 2 cells
   - 1x 2S charger, 4A out, 5V in: Uses CN3302, AO4468 to charge batteries
